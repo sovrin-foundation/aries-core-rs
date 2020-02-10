@@ -1,3 +1,6 @@
+/// The errors that can occur during a persistence operation
+pub mod errors;
+
 use postgres::{Client, NoTls};
 use std::{fmt, env,path::PathBuf};
 use serde::{Serialize, Deserialize};
