@@ -1,18 +1,15 @@
 /// The errors that can occur during a persistence operation
 pub mod errors;
 
-use postgres::{Client, NoTls};
-//use std::{fmt, env,path::PathBuf};
-//use std::path::PathBuf;
+use async_trait::async_trait;
+use postgres;
 use serde::{Serialize, Deserialize};
-use crate::persistence::errors::PersistenceErrorKind;
-
+use tokio_postgres::{Connection, Socket, tls, Client};
 
 pub enum PersistenceConfig
 {
     PostgresStorage(PostgresConfig)
 }
-
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct PostgresConfig {
@@ -24,16 +21,18 @@ pub struct PostgresConfig {
     uri : Option<String>
 }
 
+#[async_trait]
 trait Connect {
-    fn create_uri(&self) -> Result<String, PersistenceErrorKind>;
-    fn open(&self) -> Result<Client, PersistenceErrorKind>;
+    fn create_uri(&self) -> Result<String, errors::PersistenceErrorKind>;
+    fn open(&self) -> Result<postgres::Client, errors::PersistenceErrorKind>;
+    async fn async_open(&self) -> Result<postgres::Client, errors::PersistenceErrorKind>;
 }
 
-
+#[async_trait]
 impl Connect for PostgresConfig
 {
 
-    fn create_uri(&self) -> Result<String, PersistenceErrorKind> {
+    fn create_uri(&self) -> Result<String, errors::PersistenceErrorKind> {
 
         let uri = self.uri.as_ref().map_or( "", |p| p.as_str());
         if uri.is_empty() {
@@ -68,22 +67,36 @@ impl Connect for PostgresConfig
             Ok(postgres_uri)
         }
         else {
-
             Err(errors::PersistenceErrorKind::IOError)
-
         }
-
-
     }
 
 
-    fn open(&self) -> Result<Client, PersistenceErrorKind> {
+    fn open(&self) -> Result<postgres::Client, errors::PersistenceErrorKind> {
 
         let mut postgres_uri = self.uri.as_ref().map_or("", |p| p.as_str());
 
-        let mut client = Client::connect(postgres_uri, NoTls).map_err(PersistenceErrorKind::IOError);
+        if !postgres_uri.is_empty() {
 
-        Ok(client)
+            let mut client = postgres::Client::connect(postgres_uri, postgres::NoTls)
+                .map_err(errors::PersistenceErrorKind::IOError);
+            Ok(client)
+        } else {
+            Err(errors::PersistenceErrorKind::IOError)
+        }
+    }
+
+    async fn async_open(&self) -> Result<(Client, Connection<Socket, tls::NoTlsStream>), errors::PersistenceErrorKind>
+    {
+        let mut postgres_uri = self.uri.as_ref().map_or("", |p| p.as_str());
+        if !postgres_uri.is_empty() {
+            let (client, connection) = tokio_postgres::connect(postgres_uri, tokio_postgres::NoTls).await?;
+            Ok((client, connection))
+        }
+        else {
+            Err(errors::PersistenceErrorKind::IOError)
+
+        }
     }
 }
 
