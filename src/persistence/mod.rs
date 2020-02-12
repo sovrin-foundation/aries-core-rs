@@ -4,13 +4,58 @@ pub mod errors;
 use async_trait::async_trait;
 use postgres;
 use serde::{Serialize, Deserialize};
+use std::path::PathBuf;
 use tokio_postgres::{Connection, Socket, tls, Client};
 
-pub enum PersistenceConfig
-{
-    PostgresStorage(PostgresConfig)
+/// General storage configuration options
+pub enum PersistenceConfig {
+    /// Storage configuration used for opening a postgres database
+    PostgresStorage(PostgresConfig),
+    /// Storage configuration used for opening an sqlite database
+    SqliteStorage(SqliteConfig)
 }
 
+/// Sqlite configuration options
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SqliteConfig {
+    /// Path to the file. If None, the database will be opened in memory
+    path: Option<PathBuf>,
+    /// The flags to use when opening the sqlite connection
+    flags: SqliteOpenFlags
+}
+
+bitflags! {
+    /// Flags for opening Sqlite database connections.
+    #[derive(Serialize, Deserialize)]
+    pub struct SqliteOpenFlags: u16 {
+        /// Open in read only mode
+        const READ_ONLY     = 0x0001;
+        /// Open with read and write permissions
+        const READ_WRITE    = 0x0002;
+        /// Create the database if it doesn't exist
+        const CREATE        = 0x0004;
+        /// Use a URI for the database location
+        const USE_URI       = 0x0008;
+        /// Use an in-memory database
+        const USE_MEMORY    = 0x0010;
+        /// Don't allow mutexes
+        const NO_MUTEX      = 0x0020;
+        /// Allow mutexes during queries
+        const FULL_MUTEX    = 0x0040;
+        /// All connections to the database use the same cache
+        const SHARED_CACHE  = 0x0080;
+        /// All connections to the database independent caches
+        const PRIVATE_CACHE = 0x0100;
+    }
+}
+
+impl Default for SqliteOpenFlags {
+    fn default() -> SqliteOpenFlags {
+        SqliteOpenFlags::READ_WRITE | SqliteOpenFlags::CREATE | SqliteOpenFlags::NO_MUTEX | SqliteOpenFlags::USE_URI
+    }
+}
+
+/// Postgres configuration options
 #[derive(Serialize, Deserialize, Debug)]
 pub struct PostgresConfig {
     user : Option<String>,
@@ -21,17 +66,16 @@ pub struct PostgresConfig {
     uri : Option<String>
 }
 
+/// Create new connections
 #[async_trait]
 trait Connect {
     fn create_uri(&self) -> Result<String, errors::PersistenceErrorKind>;
     fn open(&self) -> Result<postgres::Client, errors::PersistenceErrorKind>;
-    async fn async_open(&self) -> Result<postgres::Client, errors::PersistenceErrorKind>;
+    async fn async_open(&self) -> Result<(Client, Connection<Socket, tls::NoTlsStream>), errors::PersistenceErrorKind>;
 }
 
 #[async_trait]
-impl Connect for PostgresConfig
-{
-
+impl Connect for PostgresConfig {
     fn create_uri(&self) -> Result<String, errors::PersistenceErrorKind> {
 
         let uri = self.uri.as_ref().map_or( "", |p| p.as_str());
@@ -40,14 +84,10 @@ impl Connect for PostgresConfig
             let mut postgres_uri : String = "postgresql://".to_string();
 
             let username= self.user.as_ref().map_or("postgres", |s| s.as_str());
-
             let password = self.password.as_ref().map_or(String::new(), |p| format!(":{}", p));
-
             let sever = self.server.as_ref().map_or( format!("@localhost"), |p| format!("@{}", p));
-
-            let port = self.port.as_ref().map_or(format!(""), |p| format!(":{}", p));
-//
-            let name = self.name.as_ref().map_or(format!(""), |p| format!("/{}", p));
+            let port = self.port.as_ref().map_or(String::new(), |p| format!(":{}", p));
+            let name = self.name.as_ref().map_or(String::new(), |p| format!("/{}", p));
 
             postgres_uri.push_str(username);
 
@@ -74,12 +114,12 @@ impl Connect for PostgresConfig
 
     fn open(&self) -> Result<postgres::Client, errors::PersistenceErrorKind> {
 
-        let mut postgres_uri = self.uri.as_ref().map_or("", |p| p.as_str());
+        let postgres_uri = self.uri.as_ref().map_or("", |p| p.as_str());
 
         if !postgres_uri.is_empty() {
 
-            let mut client = postgres::Client::connect(postgres_uri, postgres::NoTls)
-                .map_err(errors::PersistenceErrorKind::IOError);
+            let client = postgres::Client::connect(postgres_uri, postgres::NoTls)
+                .map_err(|_| errors::PersistenceErrorKind::IOError)?;
             Ok(client)
         } else {
             Err(errors::PersistenceErrorKind::IOError)
@@ -88,10 +128,12 @@ impl Connect for PostgresConfig
 
     async fn async_open(&self) -> Result<(Client, Connection<Socket, tls::NoTlsStream>), errors::PersistenceErrorKind>
     {
-        let mut postgres_uri = self.uri.as_ref().map_or("", |p| p.as_str());
+        let postgres_uri = self.uri.as_ref().map_or("", |p| p.as_str());
         if !postgres_uri.is_empty() {
-            let (client, connection) = tokio_postgres::connect(postgres_uri, tokio_postgres::NoTls).await?;
-            Ok((client, connection))
+            match tokio_postgres::connect(postgres_uri, tokio_postgres::NoTls).await {
+                Ok((client, connection)) => Ok((client, connection)),
+                Err(_) => Err(errors::PersistenceErrorKind::IOError)
+            }
         }
         else {
             Err(errors::PersistenceErrorKind::IOError)
