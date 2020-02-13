@@ -25,7 +25,7 @@ pub struct NullEnclave;
 
 impl EnclaveLike for NullEnclave {
     fn connect<A: AsRef<Path>, B: Into<String>>(_: EnclaveConnector<A, B>) -> EnclaveResult<Self> {
-        Ok(Self{})
+        Ok(Self {})
     }
 
     fn close(self) {}

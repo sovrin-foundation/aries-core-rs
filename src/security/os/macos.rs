@@ -38,10 +38,11 @@
 //! </dict>
 //! </plist>
 //! ```
-//!
 //! [codesign]: https://developer.apple.com/library/archive/documentation/Security/Conceptual/CodeSigningGuide/Procedures/Procedures.html#//apple_ref/doc/uid/TP40005929-CH4-SW4
 
-use crate::security::{EnclaveConnector, EnclaveLike, EnclaveResult, EnclaveCapabilities, errors::EnclaveErrorKind};
+use crate::security::{
+    errors::EnclaveErrorKind, EnclaveCapabilities, EnclaveConnector, EnclaveLike, EnclaveResult,
+};
 
 use security_framework::os::macos::keychain::*;
 use std::path::Path;

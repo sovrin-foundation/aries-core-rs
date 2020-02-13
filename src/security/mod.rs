@@ -105,8 +105,9 @@ where
 /// to mess up––misuse resistant.
 pub trait EnclaveLike: Sized {
     /// Establish a connection to the enclave
-    fn connect<A: AsRef<Path>, B: Into<String>>(config: EnclaveConnector<A, B>)
-        -> EnclaveResult<Self>;
+    fn connect<A: AsRef<Path>, B: Into<String>>(
+        config: EnclaveConnector<A, B>,
+    ) -> EnclaveResult<Self>;
     /// Close the connection to the enclave
     fn close(self);
     /// The capabilities of the enclave
@@ -147,7 +148,7 @@ pub enum WrappingKey {
     /// AES encryption algorithm
     Aes(AesSizes, AesModes),
     /// XChachaPoly1305 encryption algorithm
-    XChaChaPoly1305
+    XChaChaPoly1305,
 }
 
 /// Valid sizes for the AES algorithm
@@ -158,7 +159,7 @@ pub enum AesSizes {
     /// AES with 192 bit keys
     Aes192,
     /// AES with 256 bit keys
-    Aes256
+    Aes256,
 }
 
 /// Valid AEAD modes for AES
@@ -169,7 +170,7 @@ pub enum AesModes {
     /// Galios Counter mode. This is a NIST approved mode of operation defined in SP 800-38C
     Gcm,
     /// Galios Counter mode with Synthetic IV as defined in RFC8452
-    GcmSiv
+    GcmSiv,
 }
 
 /// Valid curves for ECC operations
@@ -385,7 +386,7 @@ bitflags! {
 pub mod os;
 
 /// A null enclave. Basically is just a pass through.
-/// 
+///
 /// Do NOT use this except for debugging purposes or
 /// your backend already provides crypto services
 pub mod null;

@@ -113,12 +113,12 @@ impl From<security_framework::base::Error> for EnclaveError {
             -128 => EnclaveErrorKind::AccessDenied {
                 msg: format!("{:?}", e.to_string()),
             }
-                .into(),
+            .into(),
             -25300 => EnclaveErrorKind::ItemNotFound.into(),
             _ => EnclaveErrorKind::GeneralError {
                 msg: "Unknown error".to_string(),
             }
-                .into(),
+            .into(),
         }
     }
 }

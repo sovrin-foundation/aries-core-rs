@@ -25,13 +25,13 @@ pub enum PersistenceErrorKind {
     InvalidConfig,
     /// Occurs during an IO error
     #[fail(display = "IO Error")]
-    IOError
+    IOError,
 }
 
 /// Represents a Persistence error that includes a context and backtrace
 #[derive(Debug)]
 pub struct PersistenceError {
-    inner: Context<PersistenceErrorKind>
+    inner: Context<PersistenceErrorKind>,
 }
 
 impl PersistenceError {
@@ -44,7 +44,7 @@ impl PersistenceError {
 impl From<PersistenceErrorKind> for PersistenceError {
     fn from(kind: PersistenceErrorKind) -> Self {
         Self {
-            inner: Context::new("").context(kind)
+            inner: Context::new("").context(kind),
         }
     }
 }
@@ -80,4 +80,3 @@ impl fmt::Display for PersistenceError {
         Ok(())
     }
 }
-
