@@ -16,8 +16,11 @@ Cargo.lock
 
 /target
 #Cargo.lock
+<<<<<<< HEAD
 
 
 ## added by jetbrains
+=======
+>>>>>>> 6366b4670d9d57a64913007ab7ad27dd18b98cc1
 #
 .idea/
