@@ -42,6 +42,7 @@ where
         let mut postgres_uri : String = "postgresql://".to_string();
 
         let username= self.name.as_ref().unwrap_or(|| String("postgres"));
+
         let password = self.password.as_ref().map(|p| format!(":{}", p) )
             .unwrap_or(String(""));
 
@@ -50,21 +51,19 @@ where
             .unwrap_or(String("@localhost"));
 
 
-        let port = match self.port.as_ref() {
-            Some(p) => format!(":{}", p),
-            None => String("")
-        };
+        let port = self.port.as_ref().map(|p| format!(":{}", p))
+            .unwrap_or(String(""));
 
-        let name = match self.name.as_ref() {
-            Some(p) => format!("/", p),
-            None => String("")
-        };
+        let name = self.name.as_ref().map(|p| format!("/{}", p))
+            .unwrap_or(String(""));
 
         postgres_uri.push_str(username);
 
         if !password.is_empty() {
             postgres_uri.push_str(password.as_str())
         }
+
+
 
 
 
