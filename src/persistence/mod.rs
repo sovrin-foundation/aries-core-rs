@@ -1,5 +1,7 @@
 /// The errors that can occur during a persistence operation
 pub mod errors;
+pub mod credentials;
+pub mod protocol_state;
 
 use async_trait::async_trait;
 use postgres;
@@ -178,6 +180,8 @@ impl Connect for PostgresConfig {
 mod persistence_tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
+    use rand::{thread_rng, Rng};
+    use rand::distributions::Alphanumeric;
 
     #[test]
     fn test_postgres_config_searlizes() {
@@ -221,15 +225,19 @@ mod persistence_tests {
         let mut test_postgres_config_object: PostgresConfig =
             serde_json::from_str(&demo_config).unwrap();
         let mut default_client= test_postgres_config_object.open().unwrap();
-        
-        default_client.batch_execute("
-            CREATE TABLE person (
+
+        let s : String = thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(30)
+            .collect();
+
+
+        default_client.batch_execute(format!("
+            CREATE TABLE {} (
             id      SERIAL PRIMARY KEY,
             name    TEXT NOT NULL,
             data    BYTEA
             )
-        ").unwrap()
+        ", s).as_str()).unwrap()
         }
-
-
 }
