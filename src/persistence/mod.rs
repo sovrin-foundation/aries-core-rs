@@ -8,6 +8,7 @@ use postgres;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::path::PathBuf;
 use tokio_postgres::{tls, Client, Connection, Socket};
+use zeroize::*;
 
 /// General storage configuration options
 pub enum PersistenceConfig {
@@ -75,6 +76,23 @@ pub struct PostgresConfig {
     name: Option<String>,
     #[serde(default, deserialize_with = "empty_string_is_none")]
     uri: Option<String>,
+//    #[serde(skip_deserializing,skip_serializing)]
+//    client: Client,
+}
+
+pub struct PostgresPersistance {
+    config : PostgresConfig,
+    async_client: Result<(Client, Connection<Socket, tls::NoTlsStream>), errors::PersistenceErrorKind>,
+    client : Result<postgres::Client, errors::PersistenceErrorKind>,
+}
+
+impl Zeroize for PostgresConfig {
+    #[inline]
+    fn zeroize(&mut self) {
+        if let Some(ref mut s)  = self.password {
+                s.zeroize();
+        }
+    }
 }
 
 fn empty_string_is_none<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
@@ -92,16 +110,19 @@ fn empty_string_is_none<'de, D>(deserializer: D) -> Result<Option<String>, D::Er
 
 /// Create new connections
 #[async_trait]
-trait Connect {
+trait Create {
     fn create_uri(&mut self) -> Result<Option<String>, errors::PersistenceErrorKind>;
-    fn open(&mut self) -> Result<postgres::Client, errors::PersistenceErrorKind>;
-    async fn async_open(
-        &self,
-    ) -> Result<(Client, Connection<Socket, tls::NoTlsStream>), errors::PersistenceErrorKind>;
 }
 
 #[async_trait]
-impl Connect for PostgresConfig {
+trait Connect {
+    fn open(&mut self) -> Result<(), errors::PersistenceErrorKind>;
+    async fn async_open(
+        &mut self,
+    ) -> Result<(), errors::PersistenceErrorKind>;
+}
+#[async_trait]
+impl Create for PostgresConfig {
     fn create_uri(&mut self) -> Result<Option<String>, errors::PersistenceErrorKind>{
         let uri = self.uri.as_ref().map_or("", |p| p.as_str());
         if uri.is_empty() {
@@ -144,37 +165,47 @@ impl Connect for PostgresConfig {
             Err(errors::PersistenceErrorKind::IOError)
         }
     }
+}
 
-    fn open(&mut self) -> Result<postgres::Client, errors::PersistenceErrorKind> {
-        let postgres_uri = self.uri.as_ref().map_or("", |p| p.as_str());
+
+#[async_trait]
+impl Connect for PostgresPersistance {
+
+    fn open(&mut self) -> Result<(), errors::PersistenceErrorKind> {
+        let postgres_uri = self.config.uri.as_ref().map_or("", |p| p.as_str());
         if !postgres_uri.is_empty() {
-            let client = postgres::Client::connect(postgres_uri, postgres::NoTls)
-                .map_err(|_| errors::PersistenceErrorKind::IOError)?;
-            Ok(client)
+            self.client = Ok(postgres::Client::connect(postgres_uri, postgres::NoTls)
+                .map_err(|_| errors::PersistenceErrorKind::IOError)?);
+            Ok(())
         } else {
-            let new_uri = self.create_uri()?;
+            let new_uri = self.config.create_uri()?;
             let new_uri = new_uri.ok_or(errors::PersistenceErrorKind::IOError)?;
 
-            let client = postgres::Client::connect(new_uri.as_str() , postgres::NoTls)
-                .map_err(|_| errors::PersistenceErrorKind::IOError)?;
-            Ok(client)
+            self.client = Ok(postgres::Client::connect(new_uri.as_str() , postgres::NoTls)
+                .map_err(|_| errors::PersistenceErrorKind::IOError)?);
+
+            Ok(())
         }
     }
 
     async fn async_open(
-        &self,
-    ) -> Result<(Client, Connection<Socket, tls::NoTlsStream>), errors::PersistenceErrorKind> {
-        let postgres_uri = self.uri.as_ref().map_or("", |p| p.as_str());
+        &mut self,
+    ) -> Result<(), errors::PersistenceErrorKind> {
+        let postgres_uri = self.config.uri.as_ref().map_or("", |p| p.as_str());
         if !postgres_uri.is_empty() {
-            match tokio_postgres::connect(postgres_uri, tokio_postgres::NoTls).await {
+             self.async_client = match tokio_postgres::connect(postgres_uri, tokio_postgres::NoTls).await {
                 Ok((client, connection)) => Ok((client, connection)),
                 Err(_) => Err(errors::PersistenceErrorKind::IOError),
-            }
+            };
+            Ok(())
         } else {
             Err(errors::PersistenceErrorKind::IOError)
         }
     }
 }
+
+
+
 
 #[cfg(test)]
 mod persistence_tests {
@@ -222,22 +253,33 @@ mod persistence_tests {
     #[test]
     fn test_open_default_wallet_and_write() {
         let demo_config = r#"{"user":"","password":"","server":"","port":"","name":"", "uri":""}"#;
-        let mut test_postgres_config_object: PostgresConfig =
+        let test_postgres_config_object: PostgresConfig =
             serde_json::from_str(&demo_config).unwrap();
-        let mut default_client= test_postgres_config_object.open().unwrap();
+        let mut new_postgres_persistance = PostgresPersistance {
+            config: test_postgres_config_object,
+            async_client: Err(errors::PersistenceErrorKind::IOError),
+            client: Err(errors::PersistenceErrorKind::IOError),
 
-        let s : String = thread_rng()
+        };
+
+        new_postgres_persistance.open().unwrap();
+
+
+//        let mut default_client= test_postgres_config_object;
+
+        let s: String = thread_rng()
             .sample_iter(&Alphanumeric)
             .take(30)
             .collect();
 
 
-        default_client.batch_execute(format!("
+        new_postgres_persistance.client.unwrap().batch_execute(format!("
             CREATE TABLE {} (
             id      SERIAL PRIMARY KEY,
             name    TEXT NOT NULL,
             data    BYTEA
             )
         ", s).as_str()).unwrap()
-        }
+    }
+
 }

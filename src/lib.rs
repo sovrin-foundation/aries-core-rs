@@ -69,6 +69,8 @@
 #[macro_use]
 extern crate bitflags;
 extern crate chrono;
+#[cfg(feature = "zeroize")]
+extern crate zeroize;
 
 /// The security modules
 pub mod security;
