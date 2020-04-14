@@ -62,7 +62,7 @@ impl Default for SqliteOpenFlags {
 }
 
 /// Postgres configuration options
-#[derive(Serialize, Deserialize, Default, Debug)]
+#[derive(Serialize, Deserialize, Default, Debug, Clone)]
 pub struct PostgresConfig {
     #[serde(deserialize_with = "empty_string_is_none")]
     user: Option<String>,
@@ -76,8 +76,6 @@ pub struct PostgresConfig {
     name: Option<String>,
     #[serde(default, deserialize_with = "empty_string_is_none")]
     uri: Option<String>,
-//    #[serde(skip_deserializing,skip_serializing)]
-//    client: Client,
 }
 
 pub struct PostgresPersistance {
@@ -107,7 +105,6 @@ fn empty_string_is_none<'de, D>(deserializer: D) -> Result<Option<String>, D::Er
     }
 }
 
-
 /// Create new connections
 #[async_trait]
 trait Create {
@@ -121,6 +118,7 @@ trait Connect {
         &mut self,
     ) -> Result<(), errors::PersistenceErrorKind>;
 }
+
 #[async_trait]
 impl Create for PostgresConfig {
     fn create_uri(&mut self) -> Result<Option<String>, errors::PersistenceErrorKind>{
@@ -183,7 +181,6 @@ impl Connect for PostgresPersistance {
 
             self.client = Ok(postgres::Client::connect(new_uri.as_str() , postgres::NoTls)
                 .map_err(|_| errors::PersistenceErrorKind::IOError)?);
-
             Ok(())
         }
     }
@@ -203,8 +200,6 @@ impl Connect for PostgresPersistance {
         }
     }
 }
-
-
 
 
 #[cfg(test)]
@@ -256,7 +251,7 @@ mod persistence_tests {
         let test_postgres_config_object: PostgresConfig =
             serde_json::from_str(&demo_config).unwrap();
         let mut new_postgres_persistance = PostgresPersistance {
-            config: test_postgres_config_object,
+            config: test_postgres_config_object.clone(),
             async_client: Err(errors::PersistenceErrorKind::IOError),
             client: Err(errors::PersistenceErrorKind::IOError),
 
@@ -264,14 +259,10 @@ mod persistence_tests {
 
         new_postgres_persistance.open().unwrap();
 
-
-//        let mut default_client= test_postgres_config_object;
-
         let s: String = thread_rng()
             .sample_iter(&Alphanumeric)
             .take(30)
             .collect();
-
 
         new_postgres_persistance.client.unwrap().batch_execute(format!("
             CREATE TABLE {} (
@@ -281,5 +272,4 @@ mod persistence_tests {
             )
         ", s).as_str()).unwrap()
     }
-
 }
