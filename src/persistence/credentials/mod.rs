@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use crate::persistence::errors::*;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum CryptoType {
     Aes128Gcm,
     // This means that it is tamper protected but not secured with cryptography
@@ -14,7 +14,7 @@ impl Default for CryptoType {
         CryptoType::NoEncryption
     }
 }
-#[derive(Serialize,  Deserialize, Default, Debug)]
+#[derive(Serialize,  Deserialize, Default, Debug, Clone)]
 pub struct MetaData {
     valid_until: Option<DateTime<Utc>>,
     exportable:  bool,
@@ -25,16 +25,14 @@ pub struct MetaData {
     extra: Vec<String>,
 }
 
-
-
-#[derive(Serialize,  Deserialize, Default, Debug)]
+#[derive(Serialize,  Deserialize, Default, Debug, Clone)]
 pub struct Value {
     metadata: MetaData,
     value: String,
 }
 
 trait Store {
-    fn store_value(&self) -> PersistenceErrorKind;
+    fn store_value(&mut self, metadata: MetaData, value: String) -> PersistenceErrorKind;
 }
 
 trait Create {
@@ -48,11 +46,30 @@ impl Create for MetaData {
     }
 }
 
-fn store_value(value: Value, metadata : MetaData) ->  PersistenceErrorKind {
+impl Store for Value {
+    fn store_value(&mut self, metadata: MetaData, value: String) -> PersistenceErrorKind {
+        self.metadata = metadata;
+        self.value = value;
+        if !self.metadata.key_id.is_empty() && !self.value.is_empty() {
+            /// need to think out how to connect to database ... does this come with the metadata??
+            ///
+        } else {
+            PersistenceErrorKind::IOError
 
-
-
+        }
+        PersistenceErrorKind::Success
+    }
 }
+//fn store_value(value: String, metadata : MetaData) ->  PersistenceErrorKind {
+//    if metadata.key_id {
+//        let value_to_store = Value { metadata, value };
+//
+//    } else {
+//        return PersistenceErrorKind::IOError;
+//    }
+//
+//    PersistenceErrorKind::Success
+
 
 
 #[cfg(test)]
