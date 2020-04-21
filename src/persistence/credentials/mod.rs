@@ -1,6 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use crate::persistence::errors::*;
+use crate::persistence::{PostgresConfig, PostgresPersistance, Create};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum CryptoType {
@@ -32,7 +33,7 @@ pub struct Value {
 }
 
 trait Store {
-    fn store_value(&mut self, metadata: MetaData, value: String) -> PersistenceErrorKind;
+    fn store_value(&mut self, metadata: MetaData, value: String, db_config : PostgresConfig) -> PersistenceErrorKind;
 }
 
 trait Create {
@@ -47,12 +48,22 @@ impl Create for MetaData {
 }
 
 impl Store for Value {
-    fn store_value(&mut self, metadata: MetaData, value: String) -> PersistenceErrorKind {
+    fn store_value(&mut self, metadata: MetaData, value: String, &mut db_config : PostgresPersistance) -> PersistenceErrorKind {
         self.metadata = metadata;
         self.value = value;
         if !self.metadata.key_id.is_empty() && !self.value.is_empty() {
             /// need to think out how to connect to database ... does this come with the metadata??
             ///
+            match db_config.config.uri {
+                Some(t) => db_config.create_uri(),
+                None => PersistenceErrorKind::InvalidConfig,
+            }
+
+            db_config.open()?;
+            match db_config.client {
+                Some(T) => T.batch_execute
+            }
+            
         } else {
             PersistenceErrorKind::IOError
 
