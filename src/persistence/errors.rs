@@ -27,7 +27,9 @@ pub enum PersistenceErrorKind {
     #[fail(display = "IO Error")]
     IOError,
     #[fail(display = "Success")]
-    Success
+    Success,
+    #[fail(display = "could not write or find db")]
+    DBError
 }
 
 /// Represents a Persistence error that includes a context and backtrace

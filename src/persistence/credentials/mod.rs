@@ -60,10 +60,28 @@ impl Store for Value {
             }
 
             db_config.open()?;
-            match db_config.client {
-                Some(T) => T.batch_execute
+            let db_client = match db_config.client {
+                Some(t) => t,
+                None => PersistenceErrorKind::IOError,
+            };
+
+            match db_client.batch_execute {
+                Some(t) =>  t.batch_execute(format!("
+                    DO $$
+                        BEGIN
+                            IF EXISTS(SELECT * FROM information_schema.tables WHERE table_schema = current_schema()
+                            AND table_name = 'indy_storage') THEN
+                                INSERT INTO indy_storage(cred_value)
+                                VALUES('{}');
+                            ELSE
+                                CREATE TABLE indy_storage (cred_value json NOT NULL);
+                                INSERT INTO indy_storage(cred_value)
+                                VALUES('{}');
+                            END IF
+                    END $$;", ).as_str()),
+                None => PersistenceErrorKind::DBError;
             }
-            
+
         } else {
             PersistenceErrorKind::IOError
 
