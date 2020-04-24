@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use crate::persistence::errors::*;
-use crate::persistence::{PostgresConfig, PostgresPersistance, Create};
+use crate::persistence::{PostgresPersistance, Connect, Create};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum CryptoType {
@@ -33,40 +33,44 @@ pub struct Value {
 }
 
 trait Store {
-    fn store_value(&mut self, metadata: MetaData, value: String, db_config : PostgresConfig) -> PersistenceErrorKind;
+    fn store_value(&mut self, value: Value, db_config : PostgresPersistance) -> Result<(),PersistenceErrorKind>;
 }
 
-trait Create {
+trait CreateData {
     fn create_metadata(&self) -> Result<String, PersistenceErrorKind>;
 
 }
 
-impl Create for MetaData {
+impl CreateData for MetaData {
     fn create_metadata(&self) -> Result<String, PersistenceErrorKind> {
        serde_json::to_string(&self).map_err(|_i| PersistenceErrorKind::IOError)
     }
 }
 
 impl Store for Value {
-    fn store_value(&mut self, metadata: MetaData, value: String, &mut db_config : PostgresPersistance) -> PersistenceErrorKind {
-        self.metadata = metadata;
-        self.value = value;
+    fn store_value(&mut self, value: Value, db_config : PostgresPersistance)
+                                                            -> Result<(),PersistenceErrorKind> {
+        let mut db_config = db_config;
         if !self.metadata.key_id.is_empty() && !self.value.is_empty() {
-            /// need to think out how to connect to database ... does this come with the metadata??
-            ///
-            match db_config.config.uri {
-                Some(t) => db_config.create_uri(),
-                None => PersistenceErrorKind::InvalidConfig,
-            }
 
+            let _uri= db_config.config.create_uri()?;
             db_config.open()?;
-            let db_client = match db_config.client {
-                Some(t) => t,
-                None => PersistenceErrorKind::IOError,
+
+            let mut db_client = match db_config.client {
+                Ok(v) => v,
+                Err(e) => panic!("{:?}", e),
             };
 
-            match db_client.batch_execute {
-                Some(t) =>  t.batch_execute(format!("
+
+            // work around look to fix this
+
+            let serialized_credential  = match serde_json::to_string(&value) {
+                Ok(v) => v,
+                Err(e) => panic!("{:?}", e),
+            };
+            let credential_clone = serialized_credential.clone();
+
+            match db_client.batch_execute(format!("
                     DO $$
                         BEGIN
                             IF EXISTS(SELECT * FROM information_schema.tables WHERE table_schema = current_schema()
@@ -78,27 +82,15 @@ impl Store for Value {
                                 INSERT INTO indy_storage(cred_value)
                                 VALUES('{}');
                             END IF
-                    END $$;", ).as_str()),
-                None => PersistenceErrorKind::DBError;
-            }
-
-        } else {
-            PersistenceErrorKind::IOError
-
+                    END $$;", serialized_credential, credential_clone).as_str())  {
+                Ok(t) => t,
+                Err(e) => panic!("{:?}", e),
+            };
         }
-        PersistenceErrorKind::Success
+        Ok(())
     }
-}
-//fn store_value(value: String, metadata : MetaData) ->  PersistenceErrorKind {
-//    if metadata.key_id {
-//        let value_to_store = Value { metadata, value };
-//
-//    } else {
-//        return PersistenceErrorKind::IOError;
-//    }
-//
-//    PersistenceErrorKind::Success
 
+}
 
 
 #[cfg(test)]
