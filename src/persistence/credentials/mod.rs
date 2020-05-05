@@ -95,7 +95,7 @@ impl Store for Value {
 
 #[cfg(test)]
 mod credential_tests {
-    use crate::persistence::credentials::MetaData;
+    use crate::persistence::credentials::{MetaData, Value};
 
     #[test]
     fn test_create_metadata_searilizes(){
@@ -104,6 +104,24 @@ mod credential_tests {
         let test_metadata_config_object: MetaData =
             serde_json::from_str(&demo_config).unwrap();
         assert!(!test_metadata_config_object.is_modifiable)
+    }
+
+
+    #[test]
+    fn test_store_metadata_in_value_without_data(){
+
+        let demo_config=
+            r#"{"owner":"","valid_until":"2020-02-25T19:31:01.147Z","exportable":false,"sensitive":[],"is_modifiable":false,"can_delete":false,"crypto_protection":"Aes128Gcm","synchronized":false, "key_id": "123", "extra":["none"]}"#;
+        let test_metadata_config_object: MetaData =
+            serde_json::from_str(&demo_config).unwrap();
+
+        let test_value : Value  = Value {
+            metadata : test_metadata_config_object,
+            value : "".to_string(),
+        };
+
+        assert!(!test_value.metadata.is_modifiable)
+
     }
 
 
