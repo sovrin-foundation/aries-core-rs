@@ -63,18 +63,11 @@ impl Store for Value {
 
 
             // work around look to fix this
-            if !value.value.is_empty(){
 
-                let serialized_credential  = match serde_json::to_string(&value) {
-                    Ok(v) => v,
-                    Err(e) => panic!("{:?}", e),
-                };
-
-            }
-            else {
-                
-            }
-
+            let serialized_credential  = match serde_json::to_string(&value) {
+                Ok(v) => v,
+                Err(e) => panic!("{:?}", e),
+            };
             let credential_clone = serialized_credential.clone();
 
             match db_client.batch_execute(format!("
@@ -152,6 +145,29 @@ mod credential_tests {
         assert!(!test_serialized_credential.is_empty())
 
     }
+
+    #[test]
+    fn test_doesnt_store_without_encryption(){
+
+        let demo_config=
+            r#"{"owner":"","valid_until":"2020-02-25T19:31:01.147Z","exportable":false,"sensitive":[],"is_modifiable":false,"can_delete":false,"crypto_protection":"Aes128Gcm","synchronized":false, "key_id": "123", "extra":["none"]}"#;
+        let test_metadata_config_object: MetaData =
+            serde_json::from_str(&demo_config).unwrap();
+
+        let test_value : Value  = Value {
+            metadata : test_metadata_config_object,
+            value : "".to_string(),
+        };
+
+        let test_serialized_credential  = match serde_json::to_string(&test_value) {
+            Ok(v) => v,
+            Err(e) => panic!("{:?}", e),
+        };
+
+        assert!(!test_serialized_credential.is_empty())
+
+    }
+
 
 
 }
