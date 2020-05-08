@@ -30,6 +30,7 @@ pub struct MetaData {
 pub struct Value {
     metadata: MetaData,
     value: String,
+    encryption : Option<CryptoType>,
 }
 
 trait Store {
@@ -50,6 +51,8 @@ impl CreateData for MetaData {
 impl Store for Value {
     fn store_value(&mut self, value: Value, db_config : PostgresPersistance)
                                                             -> Result<(),PersistenceErrorKind> {
+
+
         let mut db_config = db_config;
         if !self.metadata.key_id.is_empty() && !self.value.is_empty() {
 
@@ -95,7 +98,7 @@ impl Store for Value {
 
 #[cfg(test)]
 mod credential_tests {
-    use crate::persistence::credentials::{MetaData, Value};
+    use crate::persistence::credentials::{MetaData, Value, CryptoType};
 
     #[test]
     fn test_create_metadata_searilizes(){
@@ -118,6 +121,7 @@ mod credential_tests {
         let test_value : Value  = Value {
             metadata : test_metadata_config_object,
             value : "".to_string(),
+            encryption : Some(CryptoType::NoEncryption)
         };
 
         assert!(!test_value.metadata.is_modifiable)
@@ -135,6 +139,7 @@ mod credential_tests {
         let test_value : Value  = Value {
             metadata : test_metadata_config_object,
             value : "".to_string(),
+            encryption : Some(CryptoType::NoEncryption)
         };
 
         let test_serialized_credential  = match serde_json::to_string(&test_value) {
@@ -147,7 +152,7 @@ mod credential_tests {
     }
 
     #[test]
-    fn test_doesnt_store_without_encryption(){
+    fn test_allows_no_encryption(){
 
         let demo_config=
             r#"{"owner":"","valid_until":"2020-02-25T19:31:01.147Z","exportable":false,"sensitive":[],"is_modifiable":false,"can_delete":false,"crypto_protection":"Aes128Gcm","synchronized":false, "key_id": "123", "extra":["none"]}"#;
@@ -157,6 +162,7 @@ mod credential_tests {
         let test_value : Value  = Value {
             metadata : test_metadata_config_object,
             value : "".to_string(),
+            encryption : None
         };
 
         let test_serialized_credential  = match serde_json::to_string(&test_value) {
@@ -167,6 +173,9 @@ mod credential_tests {
         assert!(!test_serialized_credential.is_empty())
 
     }
+
+
+    
 
 
 
