@@ -272,4 +272,33 @@ mod persistence_tests {
             )
         ", s).as_str()).unwrap()
     }
+
+
+    #[test]
+    fn test_open_default_wallet_and_write_async() {
+        let demo_config = r#"{"user":"","password":"","server":"","port":"","name":"", "uri":""}"#;
+        let test_postgres_config_object: PostgresConfig =
+            serde_json::from_str(&demo_config).unwrap();
+        let mut new_postgres_persistance = PostgresPersistance {
+            config: test_postgres_config_object.clone(),
+            async_client: Err(errors::PersistenceErrorKind::IOError),
+            client: Err(errors::PersistenceErrorKind::IOError),
+
+        };
+
+        new_postgres_persistance.async_open().unwrap();
+
+        let s: String = thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(30)
+            .collect();
+
+        new_postgres_persistance.async_client.unwrap().batch_execute(format!("
+            CREATE TABLE {} (
+            id      SERIAL PRIMARY KEY,
+            name    TEXT NOT NULL,
+            data    BYTEA
+            )
+        ", s).as_str()).unwrap()
+    }
 }
