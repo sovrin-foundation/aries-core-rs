@@ -95,6 +95,7 @@ impl Store for Value {
         }
         Ok(())
     }
+
     fn store_value_asynchronous(&mut self, value: Value, db_config : PostgresPersistance) -> Result<(),PersistenceErrorKind> {
 
         let mut db_config = db_config;
@@ -138,8 +139,8 @@ impl Store for Value {
         Ok(())
     }
 
-    }
 }
+
 
 
 #[cfg(test)]

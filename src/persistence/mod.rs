@@ -78,6 +78,7 @@ pub struct PostgresConfig {
     uri: Option<String>,
 }
 
+#[derive(Serialize, Deserialize, Default, Debug, Clone)]
 pub struct PostgresPersistance {
     config : PostgresConfig,
     async_client: Result<(Client, Connection<Socket, tls::NoTlsStream>), errors::PersistenceErrorKind>,
@@ -185,6 +186,7 @@ impl Connect for PostgresPersistance {
         }
     }
 
+
     async fn async_open(
         &mut self,
     ) -> Result<(), errors::PersistenceErrorKind> {
@@ -194,6 +196,13 @@ impl Connect for PostgresPersistance {
                 Ok((client, connection)) => Ok((client, connection)),
                 Err(_) => Err(errors::PersistenceErrorKind::IOError),
             };
+
+            tokio::spawn(async move {
+                if let Err(e) = self.async_client.unwrap().1.await {
+                    eprintln!("connection error: {}", e);
+                }
+            });
+
             Ok(())
         } else {
             Err(errors::PersistenceErrorKind::IOError)
@@ -279,6 +288,7 @@ mod persistence_tests {
         let demo_config = r#"{"user":"","password":"","server":"","port":"","name":"", "uri":""}"#;
         let test_postgres_config_object: PostgresConfig =
             serde_json::from_str(&demo_config).unwrap();
+
         let mut new_postgres_persistance = PostgresPersistance {
             config: test_postgres_config_object.clone(),
             async_client: Err(errors::PersistenceErrorKind::IOError),
@@ -293,12 +303,15 @@ mod persistence_tests {
             .take(30)
             .collect();
 
-        new_postgres_persistance.async_client.unwrap().batch_execute(format!("
-            CREATE TABLE {} (
-            id      SERIAL PRIMARY KEY,
-            name    TEXT NOT NULL,
-            data    BYTEA
-            )
-        ", s).as_str()).unwrap()
+
+        new_postgres_persistance.async_client.unwrap()
+
+//        new_postgres_persistance.async_client.unwrap().batch_execute(format!("
+//            CREATE TABLE {} (
+//            id      SERIAL PRIMARY KEY,
+//            name    TEXT NOT NULL,
+//            data    BYTEA
+//            )
+//        ", s).as_str()).unwrap()
     }
 }
