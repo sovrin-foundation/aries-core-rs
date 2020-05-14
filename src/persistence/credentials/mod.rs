@@ -35,7 +35,6 @@ pub struct Value {
 
 trait Store {
     fn store_value_synchronous(&mut self, value: Value, db_config : PostgresPersistance) -> Result<(),PersistenceErrorKind>;
-    fn store_value_asynchronous(&mut self, value: Value, db_config : PostgresPersistance) -> Result<(),PersistenceErrorKind>;
 
 }
 
@@ -61,49 +60,6 @@ impl Store for Value {
             let _uri= db_config.config.create_uri()?;
 
             db_config.open()?;
-
-            let mut db_client = match db_config.client {
-                Ok(v) => v,
-                Err(e) => panic!("{:?}", e),
-            };
-
-
-            // work around look to fix this
-
-            let serialized_credential  = match serde_json::to_string(&value) {
-                Ok(v) => v,
-                Err(e) => panic!("{:?}", e),
-            };
-            let credential_clone = serialized_credential.clone();
-
-            match db_client.batch_execute(format!("
-                    DO $$
-                        BEGIN
-                            IF EXISTS(SELECT * FROM information_schema.tables WHERE table_schema = current_schema()
-                            AND table_name = 'indy_storage') THEN
-                                INSERT INTO indy_storage(cred_value)
-                                VALUES('{}');
-                            ELSE
-                                CREATE TABLE indy_storage (cred_value json NOT NULL);
-                                INSERT INTO indy_storage(cred_value)
-                                VALUES('{}');
-                            END IF
-                    END $$;", serialized_credential, credential_clone).as_str())  {
-                Ok(t) => t,
-                Err(e) => panic!("{:?}", e),
-            };
-        }
-        Ok(())
-    }
-
-    fn store_value_asynchronous(&mut self, value: Value, db_config : PostgresPersistance) -> Result<(),PersistenceErrorKind> {
-
-        let mut db_config = db_config;
-        if !self.metadata.key_id.is_empty() && !self.value.is_empty() {
-
-            let _uri= db_config.config.create_uri()?;
-
-            db_config.async_open()?;
 
             let mut db_client = match db_config.client {
                 Ok(v) => v,

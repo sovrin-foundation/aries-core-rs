@@ -115,9 +115,6 @@ trait Create {
 #[async_trait]
 trait Connect {
     fn open(&mut self) -> Result<(), errors::PersistenceErrorKind>;
-    async fn async_open(
-        &mut self,
-    ) -> Result<(), errors::PersistenceErrorKind>;
 }
 
 #[async_trait]
@@ -186,28 +183,6 @@ impl Connect for PostgresPersistance {
         }
     }
 
-
-    async fn async_open(
-        &mut self,
-    ) -> Result<(), errors::PersistenceErrorKind> {
-        let postgres_uri = self.config.uri.as_ref().map_or("", |p| p.as_str());
-        if !postgres_uri.is_empty() {
-             self.async_client = match tokio_postgres::connect(postgres_uri, tokio_postgres::NoTls).await {
-                Ok((client, connection)) => Ok((client, connection)),
-                Err(_) => Err(errors::PersistenceErrorKind::IOError),
-            };
-
-            tokio::spawn(async move {
-                if let Err(e) = self.async_client.unwrap().1.await {
-                    eprintln!("connection error: {}", e);
-                }
-            });
-
-            Ok(())
-        } else {
-            Err(errors::PersistenceErrorKind::IOError)
-        }
-    }
 }
 
 
@@ -280,38 +255,5 @@ mod persistence_tests {
             data    BYTEA
             )
         ", s).as_str()).unwrap()
-    }
-
-
-    #[test]
-    fn test_open_default_wallet_and_write_async() {
-        let demo_config = r#"{"user":"","password":"","server":"","port":"","name":"", "uri":""}"#;
-        let test_postgres_config_object: PostgresConfig =
-            serde_json::from_str(&demo_config).unwrap();
-
-        let mut new_postgres_persistance = PostgresPersistance {
-            config: test_postgres_config_object.clone(),
-            async_client: Err(errors::PersistenceErrorKind::IOError),
-            client: Err(errors::PersistenceErrorKind::IOError),
-
-        };
-
-        new_postgres_persistance.async_open().unwrap();
-
-        let s: String = thread_rng()
-            .sample_iter(&Alphanumeric)
-            .take(30)
-            .collect();
-
-
-        new_postgres_persistance.async_client.unwrap()
-
-//        new_postgres_persistance.async_client.unwrap().batch_execute(format!("
-//            CREATE TABLE {} (
-//            id      SERIAL PRIMARY KEY,
-//            name    TEXT NOT NULL,
-//            data    BYTEA
-//            )
-//        ", s).as_str()).unwrap()
     }
 }
