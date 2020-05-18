@@ -71,6 +71,9 @@ extern crate bitflags;
 extern crate chrono;
 #[cfg(feature = "zeroize")]
 extern crate zeroize;
+extern crate openssl;
+extern crate ursa;
+
 
 /// The security modules
 pub mod security;

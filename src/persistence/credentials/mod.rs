@@ -1,7 +1,13 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::io;
+use std::io::Write;
 use crate::persistence::errors::*;
 use crate::persistence::{PostgresPersistance, Connect, Create};
+use ursa::encryption::random_vec;
+use ursa::encryption::symm::prelude::*;
+use openssl::aes::aes_ige;
+
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum CryptoType {
@@ -37,6 +43,32 @@ trait Store {
     fn store_value_synchronous(&mut self, value: Value, db_config : PostgresPersistance) -> Result<(),PersistenceErrorKind>;
 
 }
+trait EncryptData {
+
+    fn encrypt_string_aes_128gcm(msg : String, key : String) -> Result<(), PersistenceErrorKind>;
+
+}
+
+impl EncryptData for CryptoType {
+
+    fn encrypt_string_aes_128gcm(msg : String, key : String) -> Result<(), PersistenceErrorKind> {
+
+        let converted_msg = msg.as_bytes();
+        let converted_key = key.as_bytes();
+        let aad = b"Using Aes128Gcm to encrypt credential";
+        
+        io::stdout().flush().unwrap();
+
+        let encryptor = SymmetricEncryptor::<Aes128Gcm>::default();
+
+        let ciphertext = aes_ige()
+
+
+
+
+
+    }
+}
 
 trait CreateData {
     fn create_metadata(&self) -> Result<String, PersistenceErrorKind>;
@@ -48,6 +80,8 @@ impl CreateData for MetaData {
        serde_json::to_string(&self).map_err(|_i| PersistenceErrorKind::IOError)
     }
 }
+
+
 
 impl Store for Value {
     fn store_value_synchronous(&mut self, value: Value, db_config : PostgresPersistance)
