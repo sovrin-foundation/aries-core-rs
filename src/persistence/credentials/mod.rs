@@ -45,28 +45,26 @@ trait Store {
 }
 trait EncryptData {
 
-    fn encrypt_string_aes_128gcm(msg : String, key : String) -> Result<(), PersistenceErrorKind>;
+    fn encrypt_string_aes_128gcm(msg : String, key : String) -> Vec<u8>;
 
 }
 
 impl EncryptData for CryptoType {
 
-    fn encrypt_string_aes_128gcm(msg : String, key : String) -> Result<(), PersistenceErrorKind> {
+    fn encrypt_string_aes_128gcm(msg : String, key : String) -> Vec<u8> {
 
         let converted_msg = msg.as_bytes();
         let converted_key = key.as_bytes();
         let aad = b"Using Aes128Gcm to encrypt credential";
-        
+
         io::stdout().flush().unwrap();
 
-        let encryptor = SymmetricEncryptor::<Aes128Gcm>::default();
+        let encryptor = SymmetricEncryptor::<Aes128Gcm>::new_with_key(converted_key);
 
-        let ciphertext = aes_ige()
-
-
-
-
-
+        match encryptor.encrypt_easy(aad.as_ref(), converted_msg.as_ref()) {
+            Ok(t) => t,
+            Err(e) => panic!("{:?}", e),
+        }
     }
 }
 
