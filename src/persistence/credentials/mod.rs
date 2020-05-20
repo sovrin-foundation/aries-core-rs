@@ -4,9 +4,8 @@ use std::io;
 use std::io::Write;
 use crate::persistence::errors::*;
 use crate::persistence::{PostgresPersistance, Connect, Create};
-use ursa::encryption::random_vec;
 use ursa::encryption::symm::prelude::*;
-use openssl::aes::aes_ige;
+
 
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -46,7 +45,7 @@ trait Store {
 trait EncryptData {
 
     fn encrypt_string_aes_128gcm(msg : String, key : String) -> Vec<u8>;
-
+    fn decrypt_string_aes_128gcm(msg : String, key : String) -> Vec<u8>;
 }
 
 impl EncryptData for CryptoType {
@@ -61,11 +60,44 @@ impl EncryptData for CryptoType {
 
         let encryptor = SymmetricEncryptor::<Aes128Gcm>::new_with_key(converted_key);
 
-        match encryptor.encrypt_easy(aad.as_ref(), converted_msg.as_ref()) {
+        let res = match encryptor {
+            Ok(t) => t.encrypt_easy(aad.as_ref(), converted_msg.as_ref()) ,
+            Err(e) => panic!("{:?}", e),
+        };
+
+        let res_unrwaped = match res {
             Ok(t) => t,
             Err(e) => panic!("{:?}", e),
-        }
+        };
+
+        res_unrwaped
     }
+
+
+    fn decrypt_string_aes_128gcm(msg : String, key : String) -> Vec<u8> {
+
+        let converted_msg = msg.as_bytes();
+        let converted_key = key.as_bytes();
+        let aad = b"Using Aes128Gcm to encrypt credential";
+
+        io::stdout().flush().unwrap();
+
+        let encryptor = SymmetricEncryptor::<Aes128Gcm>::new_with_key(converted_key);
+
+        let res = match encryptor {
+            Ok(t) => t.decrypt_easy(aad.as_ref(), converted_msg.as_ref()) ,
+            Err(e) => panic!("{:?}", e),
+        };
+
+        let res_unrwaped = match res {
+            Ok(t) => t,
+            Err(e) => panic!("{:?}", e),
+        };
+
+        res_unrwaped
+    }
+
+
 }
 
 trait CreateData {
@@ -208,11 +240,6 @@ mod credential_tests {
         assert!(!test_serialized_credential.is_empty())
 
     }
-
-
-
-
-
 
 }
 

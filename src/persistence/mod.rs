@@ -7,7 +7,6 @@ use async_trait::async_trait;
 use postgres;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::path::PathBuf;
-use tokio_postgres::{tls, Client, Connection, Socket};
 use zeroize::*;
 
 /// General storage configuration options
@@ -78,10 +77,9 @@ pub struct PostgresConfig {
     uri: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Default, Debug, Clone)]
+
 pub struct PostgresPersistance {
     config : PostgresConfig,
-    async_client: Result<(Client, Connection<Socket, tls::NoTlsStream>), errors::PersistenceErrorKind>,
     client : Result<postgres::Client, errors::PersistenceErrorKind>,
 }
 
@@ -236,7 +234,6 @@ mod persistence_tests {
             serde_json::from_str(&demo_config).unwrap();
         let mut new_postgres_persistance = PostgresPersistance {
             config: test_postgres_config_object.clone(),
-            async_client: Err(errors::PersistenceErrorKind::IOError),
             client: Err(errors::PersistenceErrorKind::IOError),
 
         };
