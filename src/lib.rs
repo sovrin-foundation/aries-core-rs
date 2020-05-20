@@ -50,7 +50,7 @@
 //! This should be separate from the backend system but doesn't have to be.
 //! Again, this must be configurable via the `--features=` option at compile time.
 //! The focus of this project is to enable secure, misuse-resistant agent storage.
-//! 
+//!
 //! Storage is composed of the authentication layer
 //! the data protection layer, and data persistance layer.
 //!
@@ -64,12 +64,19 @@
 //! for better flexibility
 //!
 //! Data persistance is just putting the data where it can
-//! be retrieved later. This could be a database, files,
-//! cloud storage, or memory.
+//! be retrieved later. This could be a database, files, cloud storage, or memory.
 
-#[macro_use] extern crate bitflags;
+#[macro_use]
+extern crate bitflags;
+extern crate chrono;
+#[cfg(feature = "zeroize")]
+extern crate zeroize;
+extern crate openssl;
+extern crate ursa;
+
 
 /// The security modules
 pub mod security;
+
 /// The persistence modules
 pub mod persistence;

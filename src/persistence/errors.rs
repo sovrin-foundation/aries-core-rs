@@ -25,7 +25,11 @@ pub enum PersistenceErrorKind {
     InvalidConfig,
     /// Occurs during an IO error
     #[fail(display = "IO Error")]
-    IOError
+    IOError,
+    #[fail(display = "Success")]
+    Success,
+    #[fail(display = "could not write or find db")]
+    DBError
 }
 
 /// Represents a Persistence error that includes a context and backtrace
